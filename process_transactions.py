@@ -3,6 +3,7 @@ import pandas as pd
 import smtplib
 
 
+from db import DB
 from datetime import datetime
 from collections import Counter
 from email.message import EmailMessage
@@ -15,7 +16,7 @@ from dotenv import (
 load_dotenv(find_dotenv())
 
 
-class Transaction:
+class Transaction():
     def __init__(self):
         self.csv_file = pd.read_csv(os.getenv('FILE_NAME'))
         self.total_balance = 0
@@ -62,15 +63,15 @@ class Transaction:
         self.email_message['Subject'] = 'Account Balance'
         self.email_message['From'] = self.email
         self.email_message['To'] = self.email
-        
+
         for key_month, value_month in self.months_collection.items():
             self.email_body += (
                 f"Number of transactions in {key_month}: {value_month}\n"
             )
             self.email_body += '\t'
-        
+
         self.text = f"""\
-            Hello: 
+            Hello:
             We hope you are fine! Here there is your Account Balance\n
             Total Balance is: {self.total_balance}
             {self.email_body}
@@ -79,16 +80,13 @@ class Transaction:
             f"Average debit Amount: {self.debit_amount_average}\n"
         self.text += \
             f"\tAverage credit Amount: {self.credit_amout_average}"
-        
+
         self.email_message.set_content(self.text)
 
         with smtplib.SMTP_SSL(self.host, self.port) as smtp:
             smtp.login(self.email, self.password)
             smtp.send_message(self.email_message)
             print("Successfully sent email")
-    
-    def store_database(self):
-        pass
 
 
 transaction = Transaction()
