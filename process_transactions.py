@@ -5,16 +5,19 @@ import smtplib
 
 from datetime import datetime
 from collections import Counter
-from email.mime.text import MIMEText
+from email.message import EmailMessage
 from dotenv import (
     load_dotenv,
     find_dotenv
 )
 
 
+load_dotenv(find_dotenv())
+
+
 class Transaction:
-    def __init__(self, csv_file):
-        self.csv_file = pd.read_csv(csv_file)
+    def __init__(self):
+        self.csv_file = pd.read_csv(os.getenv('FILE_NAME'))
         self.total_balance = 0
         self.debit_amount = 0
         self.credit_amout = 0
@@ -22,10 +25,12 @@ class Transaction:
         self.credit_amout_counter = 0
         self.debit_amount_average = 0
         self.credit_amout_average = 0
-        self.sender = 'testSender@email.com'
-        self.receivers = ['testReciver@.com']
-        self.localhost = 'localhost'
-        self.port = 1025
+        self.email_body = ''
+        self.html_text = ''
+        self.email = os.getenv('EMAIL')
+        self.host = os.getenv('HOST')
+        self.port = int(os.getenv('PORT'))
+        self.password = os.getenv('PASSWORD')
 
     def process_transaction(self):
         self.date_column = self.csv_file.get(
@@ -36,7 +41,7 @@ class Transaction:
         )
         self.date_list = [
             datetime.strptime(date, '%m/%d').strftime(
-            '%b') for date in self.date_column
+                '%b') for date in self.date_column
         ]
         self.months_collection = dict(Counter(self.date_list))
         self.total_balance = sum(self.transaction_column)
@@ -53,33 +58,39 @@ class Transaction:
         self.credit_amout_average = self.credit_amout/self.credit_amout_counter
 
     def send_summary_to_email(self):
-
-        message = f"""
-            From: BankTest <{self.sender}>
-            To: PersonTest <{self.receivers}>
-            Subject: Total Balance Account
-
-            Total Balance is: {self.total_balance}
-
-        """
-        for key_month, value_month in self.months_collection.items():
-            message += f"Number of transactions in {key_month}: {value_month}\n"
+        self.email_message = EmailMessage()
+        self.email_message['Subject'] = 'Account Balance'
+        self.email_message['From'] = self.email
+        self.email_message['To'] = self.email
         
-        message += f"Average debit Amount: {self.debit_amount_average}\n"
-        message += f"Average credit Amount: {self.credit_amout_average}"
-        print(message)
+        for key_month, value_month in self.months_collection.items():
+            self.email_body += (
+                f"Number of transactions in {key_month}: {value_month}\n"
+            )
+            self.email_body += '\t'
+        
+        self.text = f"""\
+            Hello: 
+            We hope you are fine! Here there is your Account Balance\n
+            Total Balance is: {self.total_balance}
+            {self.email_body}
         """
-        try:
-            smtpObj = smtplib.SMTP('localhost', 1025)
-            smtpObj.sendmail(self.sender, self.receivers, message)
+        self.text += \
+            f"Average debit Amount: {self.debit_amount_average}\n"
+        self.text += \
+            f"\tAverage credit Amount: {self.credit_amout_average}"
+        
+        self.email_message.set_content(self.text)
+
+        with smtplib.SMTP_SSL(self.host, self.port) as smtp:
+            smtp.login(self.email, self.password)
+            smtp.send_message(self.email_message)
             print("Successfully sent email")
-        except Exception as SMTPException:
-            print(SMTPException)
-        """
+    
+    def store_database(self):
+        pass
 
 
-csv_file = 'txns.csv'
-
-transaction = Transaction(csv_file)
+transaction = Transaction()
 transaction.process_transaction()
 transaction.send_summary_to_email()
