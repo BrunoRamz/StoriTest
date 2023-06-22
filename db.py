@@ -40,3 +40,7 @@ class DB:
             DROP TABLE IF EXISTS transactions
             """
         )
+
+    def closed_connection(self):
+        self.connection.close()
+        print("Connection Closed...")
