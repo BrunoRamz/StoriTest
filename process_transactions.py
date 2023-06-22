@@ -16,9 +16,9 @@ from dotenv import (
 load_dotenv(find_dotenv())
 
 
-class Transaction():
+class Transaction(DB):
     def __init__(self):
-        self.csv_file = pd.read_csv(os.getenv('FILE_NAME'))
+        self.transaction_id = 0
         self.total_balance = 0
         self.debit_amount = 0
         self.credit_amout = 0
@@ -32,14 +32,16 @@ class Transaction():
         self.host = os.getenv('HOST')
         self.port = int(os.getenv('PORT'))
         self.password = os.getenv('PASSWORD')
-
-    def process_transaction(self):
+        self.csv_file = pd.read_csv(os.getenv('FILE_NAME'))
         self.date_column = self.csv_file.get(
             'Date', 'Key Not Found'
         )
         self.transaction_column = self.csv_file.get(
             'Transaction', 'Key Not Found'
         )
+        self.store_data_list = []
+
+    def process_transaction(self):
         self.date_list = [
             datetime.strptime(date, '%m/%d').strftime(
                 '%b') for date in self.date_column
@@ -88,7 +90,41 @@ class Transaction():
             smtp.send_message(self.email_message)
             print("Successfully sent email")
 
+    def store_data(self):
+        for (date, transaction) in zip(
+            self.date_column,
+            self.transaction_column
+        ):
+            self.store_data_list.append(
+                (self.transaction_id, date, transaction)
+            )
+            self.transaction_id += 1
+
+        self.cursor.executemany(
+            """
+            INSERT INTO transactions VALUES (?,?,?)
+            """,
+            self.store_data_list
+        )
+        self.connection.commit()
+
+    def show_table(self):
+        self.cursor.execute(
+            """
+            SELECT *
+            FROM transactions
+            """
+        )
+        self.data_frame = pd.DataFrame(
+            self.cursor.fetchall(),
+            columns=['transactions_id', 'date', 'transaction']
+        )
+        print(self.data_frame)
+
 
 transaction = Transaction()
+transaction.start_database()
 transaction.process_transaction()
 transaction.send_summary_to_email()
+transaction.store_data()
+transaction.closed_connection()
